@@ -1,0 +1,105 @@
+# Release pipeline for the query-exe launcher itself.
+#
+# The launcher has no version identity outside of this: pom.xml's <version> is
+# never bumped in the tracked source, and jars are only ever built transiently
+# with the version set from the release tag (mirrors query-exe's own release
+# workflow). The artifacts this uploads are what query-exe's LauncherUpdateService
+# polls for and downloads to self-update an already-installed launcher.
+#
+# Distinct from — and does not replace — the full installer/AppImage build,
+# which still happens from the query-exe (client) repo's own release workflow,
+# checking out this repo's latest release tag and bundling that jar alongside
+# the client's own runtime/native-elevated packaging (jpackage + Inno Setup /
+# appimagetool).
+#
+# Windows and Linux need genuinely different self-update artifacts, not just
+# different natives: on Windows, the launcher's own code is a discrete jar
+# (app/query-exe-launcher.jar) inside an otherwise-untouched, writable install
+# directory, so the client can just overwrite that one file in place. On
+# Linux there is no equivalent — an AppImage is one opaque, read-only-mounted
+# unit — so "update the launcher" has to mean replacing the *entire*
+# .AppImage the client is running from. That's why this workflow builds a
+# plain jar for Windows but a full AppImage for Linux (seeded with whatever
+# the latest published client jar happens to be — irrelevant at runtime,
+# since an in-place swap never touches the already-installed client jar in
+# %APPDATA%, only a fresh install would ever read that seed).
+#
+# No hub: there's nothing to deploy to — the release assets ARE the update
+# source, queried directly from GitHub by both the client and this launcher.
+
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: write
+
+env:
+  CLIENT_REPO: B077AS/query-exe
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "21"
+          cache: maven
+
+      - name: Resolve version from release tag
+        id: v
+        env:
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Set Maven version from tag
+        run: mvn -B versions:set -DnewVersion="${{ steps.v.outputs.version }}" -DgenerateBackupPoms=false
+
+      - name: Build Windows-native jar
+        run: |
+          mvn -B clean package -Pwin-natives
+          cp target/query-exe-launcher.jar query-exe-launcher-windows.jar
+
+      - name: Get latest client release (AppImage seed)
+        id: client
+        run: |
+          TAG=$(gh release view --repo "$CLIENT_REPO" --json tagName -q .tagName)
+          echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
+          gh release download "$TAG" --repo "$CLIENT_REPO" --pattern "query-exe-*.jar" --dir client-jar
+          echo "jar=$(ls client-jar/*.jar | head -1)" >> "$GITHUB_OUTPUT"
+
+      - name: Install appimagetool
+        run: |
+          mkdir -p ~/.local/bin
+          curl -Lo ~/.local/bin/appimagetool \
+            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x ~/.local/bin/appimagetool
+
+      - name: Build Linux AppImage
+        run: |
+          mvn -B clean package -Pappimage \
+            "-Dclient.version=${{ steps.client.outputs.version }}" \
+            "-Dclient.jar=${{ steps.client.outputs.jar }}"
+          cp target/appimage/QueryExe-*.AppImage query-exe-launcher-linux.AppImage
+
+      - name: Compute sha256 sidecars
+        run: |
+          sha256sum query-exe-launcher-windows.jar | awk '{print $1}' > query-exe-launcher-windows.jar.sha256
+          sha256sum query-exe-launcher-linux.AppImage | awk '{print $1}' > query-exe-launcher-linux.AppImage.sha256
+
+      - name: Attach artifacts to the release
+        run: |
+          gh release upload "${{ github.event.release.tag_name }}" \
+            query-exe-launcher-windows.jar \
+            query-exe-launcher-windows.jar.sha256 \
+            query-exe-launcher-linux.AppImage \
+            query-exe-launcher-linux.AppImage.sha256 \
+            --clobber -R "$GITHUB_REPOSITORY"
