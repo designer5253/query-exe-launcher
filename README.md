@@ -26,9 +26,9 @@ The project has two pieces:
 | [query-exe](https://github.com/B077AS/query-exe) | Desktop client (JavaFX, Windows & Linux) |
 | **query-exe-launcher** (this repo) | Auto-updating launcher, kept up to date by the client in return |
 
-This repo is the thing you actually download: a small, Discord-style bootstrapper that installs the QueryExe client, keeps it up to date on every start, and then gets out of the way. Install once, never think about updates again.
+This repo is the source for a small, Discord-style bootstrapper that installs the QueryExe client, keeps it up to date on every start, and then gets out of the way. Install once, never think about updates again.
 
-> 📥 **Just want to use QueryExe?** Grab the Windows installer or Linux AppImage from this repo's [Releases](../../releases) page. You never need to build it yourself.
+> 📥 **Just want to use QueryExe?** Grab the Windows installer or Linux AppImage from **[query-exe's Releases page](https://github.com/B077AS/query-exe/releases)** — the client repo's own release pipeline checks out this repo's latest release and bundles it into the installer/AppImage. This repo's own [Releases](../../releases) page only carries self-update payloads (`query-exe-launcher-windows.jar` / `query-exe-launcher-linux.AppImage`) for a launcher you've already installed — not something you'd download directly.
 
 ## What the launcher does
 
