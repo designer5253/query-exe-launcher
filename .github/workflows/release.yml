@@ -68,8 +68,26 @@ jobs:
           mvn -B clean package -Pwin-natives
           cp target/query-exe-launcher.jar query-exe-launcher-windows.jar
 
+      # Bootstrap escape hatch: on a brand-new pair of repos, query-exe won't
+      # have a release yet the very first time this runs (its own installer/
+      # appimage jobs need THIS repo's latest release, so the two can't both
+      # go first). Rather than hard-fail the whole run, skip just the AppImage
+      # self-update payload — the Windows jar above still ships fine, and this
+      # payload only matters for updating an *already-installed* launcher
+      # anyway, which can't exist before the first install ships regardless.
+      - name: Check whether query-exe has a release yet
+        id: client-check
+        run: |
+          if gh release view --repo "$CLIENT_REPO" >/dev/null 2>&1; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::No query-exe release exists yet — skipping the Linux AppImage self-update payload for this run. Once query-exe has published a release, re-run this workflow (Actions tab -> Re-run jobs) to backfill it."
+          fi
+
       - name: Get latest client release (AppImage seed)
         id: client
+        if: steps.client-check.outputs.exists == 'true'
         run: |
           TAG=$(gh release view --repo "$CLIENT_REPO" --json tagName -q .tagName)
           echo "version=${TAG#v}" >> "$GITHUB_OUTPUT"
@@ -77,6 +95,7 @@ jobs:
           echo "jar=$(ls client-jar/*.jar | head -1)" >> "$GITHUB_OUTPUT"
 
       - name: Install appimagetool
+        if: steps.client-check.outputs.exists == 'true'
         run: |
           mkdir -p ~/.local/bin
           curl -Lo ~/.local/bin/appimagetool \
@@ -84,6 +103,7 @@ jobs:
           chmod +x ~/.local/bin/appimagetool
 
       - name: Build Linux AppImage
+        if: steps.client-check.outputs.exists == 'true'
         run: |
           mvn -B clean package -Pappimage \
             "-Dclient.version=${{ steps.client.outputs.version }}" \
@@ -93,13 +113,14 @@ jobs:
       - name: Compute sha256 sidecars
         run: |
           sha256sum query-exe-launcher-windows.jar | awk '{print $1}' > query-exe-launcher-windows.jar.sha256
-          sha256sum query-exe-launcher-linux.AppImage | awk '{print $1}' > query-exe-launcher-linux.AppImage.sha256
+          if [ -f query-exe-launcher-linux.AppImage ]; then
+            sha256sum query-exe-launcher-linux.AppImage | awk '{print $1}' > query-exe-launcher-linux.AppImage.sha256
+          fi
 
       - name: Attach artifacts to the release
         run: |
-          gh release upload "${{ github.event.release.tag_name }}" \
-            query-exe-launcher-windows.jar \
-            query-exe-launcher-windows.jar.sha256 \
-            query-exe-launcher-linux.AppImage \
-            query-exe-launcher-linux.AppImage.sha256 \
-            --clobber -R "$GITHUB_REPOSITORY"
+          FILES="query-exe-launcher-windows.jar query-exe-launcher-windows.jar.sha256"
+          if [ -f query-exe-launcher-linux.AppImage ]; then
+            FILES="$FILES query-exe-launcher-linux.AppImage query-exe-launcher-linux.AppImage.sha256"
+          fi
+          gh release upload "${{ github.event.release.tag_name }}" $FILES --clobber -R "$GITHUB_REPOSITORY"
