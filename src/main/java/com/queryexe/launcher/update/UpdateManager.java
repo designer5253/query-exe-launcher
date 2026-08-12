@@ -117,6 +117,7 @@ public class UpdateManager {
             listener.onPhase(Phase.STARTING);
             pause(350);
             launchClient(jar);
+            //pauseForClientHandoff();
             listener.onLaunched();
 
         } catch (Exception e) {
@@ -128,6 +129,7 @@ public class UpdateManager {
                     listener.onPhase(Phase.STARTING);
                     pause(300);
                     launchClient(jar);
+                    pauseForClientHandoff();
                     listener.onLaunched();
                     return;
                 } catch (Exception launchEx) {
@@ -393,5 +395,17 @@ public class UpdateManager {
         } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
+    }
+
+    /**
+     * Gives the freshly spawned client's JavaFX/Glass init a clear head start before this
+     * launcher tears down its own Platform. Without this gap, {@code onLaunched()} triggers
+     * {@code Platform.exit()} here almost immediately after the child process starts — two
+     * JavaFX toolkit instances initializing/shutting down back-to-back on Windows have been
+     * observed to race on native Glass window/graphics setup, silently hanging the child before
+     * it logs anything.
+     */
+    private static void pauseForClientHandoff() {
+        pause(700);
     }
 }
